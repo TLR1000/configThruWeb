@@ -2,6 +2,7 @@
 #include <ESP8266WebServer.h>
 #include <SPI.h>
 #include <SD.h>
+#include <unordered_map>
 
 const int chipSelect = D8;  // Pin D8 is the default chip select pin for the SD card shield
 const char* ssid = "LazyG";
@@ -41,19 +42,29 @@ void handleRoot() {
 }
 
 
+#include <SD.h>
+
 void handleSave() {
-  File configFile = SD.open("/config.txt", FILE_WRITE | O_TRUNC);  // Open file in write mode with truncation
+  // Step 1: Check if the file "config.tmp" exists. If it does, delete it.
+  if (SD.exists("/config.tmp")) {
+    SD.remove("/config.tmp");
+  }
+
+  // Step 2: Create a new file called "config.tmp".
+  File configFile = SD.open("/config.tmp", FILE_WRITE);
   if (!configFile) {
-    server.send(500, "text/plain", "Failed to open config.txt file!");
+    server.send(500, "text/plain", "Failed to create config.tmp file!");
     return;
   }
 
   String response = "Configuration saved successfully!\nNew values:\n";
 
+  // Step 3: Write the new parameter/value pairs to the "config.tmp" file.
   for (int i = 0; i < server.args(); i++) {
     String paramName = server.argName(i);
     String paramValue = server.arg(i);
 
+    // Update the parameter values with the new ones provided through the web interface
     if (paramName == "WebserverActive") {
       webserverActiveValue = paramValue.toInt();
     }
@@ -66,6 +77,14 @@ void handleSave() {
 
   configFile.close();
 
+  // Step 4: Check if the file "config.txt" exists. If it does, rename it to "config.old".
+  if (SD.exists("/config.txt")) {
+    SD.rename("/config.txt", "/config.old");
+  }
+
+  // Step 5: Rename the file "config.tmp" to "config.txt".
+  SD.rename("/config.tmp", "/config.txt");
+
   server.sendHeader("Location", String("/"), true); // Redirect to the configuration page
   server.send(302, "text/plain", response); // Send redirect response
 }
@@ -73,8 +92,9 @@ void handleSave() {
 
 
 
+
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   // Initialize SD card
   if (!SD.begin(chipSelect)) {
