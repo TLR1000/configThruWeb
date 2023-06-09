@@ -14,7 +14,8 @@ unsigned long webserverActiveValue = 0;
 
 void setup() {
   Serial.begin(19200);
-  while (! Serial);
+  while (!Serial)
+    ;
   Serial.println("\n");
   Serial.println("Hello World");
 
@@ -24,7 +25,7 @@ void setup() {
     Serial.println("SD card initialization failed!");
     return;
   }
-  
+
   // Read WebserverActive value from config.txt
   Serial.println("Reading config.txt...");
   File configFile = SD.open("/config.txt", FILE_READ);
@@ -71,7 +72,7 @@ void setup() {
 
   server.begin();
 
-  startTime = millis(); // Start the timer
+  startTime = millis();  // Start the timer
   Serial.println("Set Up Done.");
 }
 
@@ -122,20 +123,24 @@ void handleRoot() {
 void handleSave() {
   Serial.println("webserver: handleSave");
   // Step 1: Check if the file "config.tmp" exists. If it does, delete it.
-  if (SD.exists("/config.tmp")) {
-    SD.remove("/config.tmp");
+  if (SD.exists("/config.txt")) {
+    Serial.println("remove config.txt");
+    SD.remove("/config.txt");
   }
 
-  // Step 2: Create a new file called "config.tmp".
-  File configFile = SD.open("/config.tmp", FILE_WRITE);
+  // Step 2: Create a new file called "config.txt".
+
+  File configFile = SD.open("/config.txt", FILE_WRITE);
+  Serial.println("write config.txt");
   if (!configFile) {
-    server.send(500, "text/plain", "Failed to create config.tmp file!");
+    server.send(500, "text/plain", "Failed to create config.txt file!");
     return;
   }
 
   String response = "Configuration saved successfully!\nNew values:\n";
 
-  // Step 3: Write the new parameter/value pairs to the "config.tmp" file.
+  // Step 3: Write the new parameter/value pairs to the "config.txt" file.
+  Serial.println("Write the new parameter/value pairs to config.txt");
   for (int i = 0; i < server.args(); i++) {
     String paramName = server.argName(i);
     String paramValue = server.arg(i);
@@ -152,15 +157,8 @@ void handleSave() {
   }
 
   configFile.close();
+  Serial.println("closed config.txt");
 
-  // Step 4: Check if the file "config.txt" exists. If it does, rename it to "config.old".
-  if (SD.exists("/config.txt")) {
-    SD.rename("/config.txt", "/config.old");
-  }
-
-  // Step 5: Rename the file "config.tmp" to "config.txt".
-  SD.rename("/config.tmp", "/config.txt");
-
-  server.sendHeader("Location", String("/"), true); // Redirect to the configuration page
-  server.send(302, "text/plain", response); // Send redirect response
+  server.sendHeader("Location", String("/"), true);  // Redirect to the configuration page
+  server.send(302, "text/plain", response);          // Send redirect response
 }
