@@ -12,7 +12,85 @@ ESP8266WebServer server(80);
 unsigned long startTime = 0;
 unsigned long webserverActiveValue = 0;
 
+void setup() {
+  Serial.begin(19200);
+  while (! Serial);
+  Serial.println("\n");
+  Serial.println("Hello World");
+
+  // Initialize SD card
+  Serial.println("Initialize SD card...");
+  if (!SD.begin(chipSelect)) {
+    Serial.println("SD card initialization failed!");
+    return;
+  }
+  
+  // Read WebserverActive value from config.txt
+  Serial.println("Reading config.txt...");
+  File configFile = SD.open("/config.txt", FILE_READ);
+  if (!configFile) {
+    Serial.println("Failed to open config.txt file!");
+    return;
+  }
+
+  while (configFile.available()) {
+    String line = configFile.readStringUntil('\n');
+    line.trim();
+
+    if (line.length() == 0 || line.startsWith("#")) {
+      continue;
+    }
+
+    int separatorIndex = line.indexOf('=');
+    if (separatorIndex == -1) {
+      continue;
+    }
+
+    String paramName = line.substring(0, separatorIndex);
+    String paramValue = line.substring(separatorIndex + 1);
+
+    if (paramName == "WebserverActive") {
+      webserverActiveValue = paramValue.toInt();
+      Serial.print("Reading WebserverActive: ");
+      Serial.println(webserverActiveValue);
+    }
+
+    // Process other configuration parameters as needed
+    // ...
+  }
+
+  configFile.close();
+
+  // Set up Wi-Fi access point
+  Serial.println("Setting up Access Point and webserver...");
+  WiFi.softAP(ssid, password);
+
+  // Set up web server routes
+  server.on("/", handleRoot);
+  server.on("/save", handleSave);
+
+  server.begin();
+
+  startTime = millis(); // Start the timer
+  Serial.println("Set Up Done.");
+}
+
+void loop() {
+  server.handleClient();
+
+  // Check if the time has exceeded the webserverActiveValue
+  if (millis() - startTime >= webserverActiveValue) {
+    Serial.println("Stopping server.");
+    server.stop();
+    WiFi.softAPdisconnect(true);
+    while (true) {
+      // Stay in an infinite loop or perform any other desired actions after shutting down the server and access point
+    }
+  }
+}
+
 void handleRoot() {
+  Serial.println("webserver: handleRoot");
   File configFile = SD.open("/config.txt", FILE_READ);
   if (!configFile) {
     server.send(500, "text/plain", "Failed to open config.txt file!");
@@ -41,10 +119,8 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
-
-#include <SD.h>
-
 void handleSave() {
+  Serial.println("webserver: handleSave");
   // Step 1: Check if the file "config.tmp" exists. If it does, delete it.
   if (SD.exists("/config.tmp")) {
     SD.remove("/config.tmp");
@@ -87,75 +163,4 @@ void handleSave() {
 
   server.sendHeader("Location", String("/"), true); // Redirect to the configuration page
   server.send(302, "text/plain", response); // Send redirect response
-}
-
-
-
-
-
-void setup() {
-  Serial.begin(9600);
-
-  // Initialize SD card
-  if (!SD.begin(chipSelect)) {
-    Serial.println("SD card initialization failed!");
-    return;
-  }
-
-  // Read WebserverActive value from config.txt
-  File configFile = SD.open("/config.txt", FILE_READ);
-  if (!configFile) {
-    Serial.println("Failed to open config.txt file!");
-    return;
-  }
-
-  while (configFile.available()) {
-    String line = configFile.readStringUntil('\n');
-    line.trim();
-
-    if (line.length() == 0 || line.startsWith("#")) {
-      continue;
-    }
-
-    int separatorIndex = line.indexOf('=');
-    if (separatorIndex == -1) {
-      continue;
-    }
-
-    String paramName = line.substring(0, separatorIndex);
-    String paramValue = line.substring(separatorIndex + 1);
-
-    if (paramName == "WebserverActive") {
-      webserverActiveValue = paramValue.toInt();
-    }
-
-    // Process other configuration parameters as needed
-    // ...
-  }
-
-  configFile.close();
-
-  // Set up Wi-Fi access point
-  WiFi.softAP(ssid, password);
-
-  // Set up web server routes
-  server.on("/", handleRoot);
-  server.on("/save", handleSave);
-
-  server.begin();
-
-  startTime = millis(); // Start the timer
-}
-
-void loop() {
-  server.handleClient();
-
-  // Check if the time has exceeded the webserverActiveValue
-  if (millis() - startTime >= webserverActiveValue) {
-    server.stop();
-    WiFi.softAPdisconnect(true);
-    while (true) {
-      // Stay in an infinite loop or perform any other desired actions after shutting down the server and access point
-    }
-  }
 }
