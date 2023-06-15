@@ -87,6 +87,7 @@ void setup() {
   // Set up web server routes
   server.on("/", handleRoot);
   server.on("/save", handleSave);
+  server.on("/reboot", handleReboot);
   Serial.println("Starting webserver...");
   server.begin();
 
@@ -142,7 +143,11 @@ void handleRoot() {
   }
   configFile.close();
 
-  html += "<input type='submit' value='Save'></form></body></html>";
+  // Add the reboot button to the HTML form
+  html += "<input type='submit' value='Save'></form>";
+  html += "<form action='/reboot' method='POST' style='margin-top: 20px;'>";
+  html += "<input type='submit' value='Restart Device'></form>";
+  html += "</body></html>";
 
   server.send(200, "text/html", html);
 }
@@ -189,4 +194,12 @@ void handleSave() {
 
   server.sendHeader("Location", String("/"), true);  // Redirect to the configuration page
   server.send(302, "text/plain", response);          // Send redirect response
+}
+
+void handleReboot() {
+  Serial.println("webserver: handleReboot");
+  // Perform any necessary actions before rebooting
+
+  // Reboot the device
+  ESP.restart();
 }
